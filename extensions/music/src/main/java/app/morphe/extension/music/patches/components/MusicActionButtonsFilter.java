@@ -61,6 +61,8 @@ public final class MusicActionButtonsFilter extends Filter {
     // the shared icon catalogue that trails at the end.
     private static final String COMMENTS_ICON = "_text_bubble_";
     private static final String LYRICS_ICON = "_quote_";
+    private static final String THUMB_UP_ICON = "_thumb_up_";
+    private static final String THUMB_DOWN_ICON = "_thumb_down_";
     private static final int ICON_SCAN_HEAD_LIMIT = 500;
 
     private final StringFilterGroup actionBar;
@@ -169,9 +171,13 @@ public final class MusicActionButtonsFilter extends Filter {
             for (int i = treeNodeResultList.size() - 1; i >= 0; i--) {
                 byte[] buttonProto = extractButtonProto(treeNodeResultList.get(i));
                 if (buttonProto == null) continue;
-                if (shouldHideButton(buttonProto)) {
-                    treeNodeResultList.remove(i);
-                }
+                if (!shouldHideButton(buttonProto)) continue;
+                // Music bakes the row's leading padding into item[0], so physically removing
+                // the first entry collapses the whole row against the screen edge. Keep it in
+                // the list and let isFiltered() do a visual-only hide instead - the empty cell
+                // preserves the padding.
+                if (i == 0 && isLikeDislikeButton(buttonProto)) continue;
+                treeNodeResultList.remove(i);
             }
         } catch (Exception ex) {
             Logger.printException(() -> "onLazilyConvertedElementLoaded failure", ex);
@@ -259,9 +265,24 @@ public final class MusicActionButtonsFilter extends Filter {
         // shared icon catalogue.
         String head = contents.length() > ICON_SCAN_HEAD_LIMIT
                 ? contents.substring(0, ICON_SCAN_HEAD_LIMIT) : contents;
+        if (head.contains(THUMB_UP_ICON) || head.contains(THUMB_DOWN_ICON)) {
+            return Settings.HIDE_LIKE_DISLIKE_BUTTON.get();
+        }
         if (head.contains(COMMENTS_ICON)) return Settings.HIDE_COMMENTS_BUTTON.get();
         if (head.contains(LYRICS_ICON)) return Settings.HIDE_LYRICS_BUTTON.get();
         // Save button has no unique endpoint marker of its own; it's the fall-through.
         return Settings.HIDE_SAVE_BUTTON.get();
+    }
+
+    private static boolean isLikeDislikeButton(byte[] buffer) {
+        String contents = new String(buffer, StandardCharsets.ISO_8859_1);
+        if (contents.contains(SEGMENTED_LIKE_DISLIKE_MARKER)
+                || contents.contains(LIKE_BUTTON_MARKER)
+                || contents.contains(DISLIKE_BUTTON_MARKER)) {
+            return true;
+        }
+        String head = contents.length() > ICON_SCAN_HEAD_LIMIT
+                ? contents.substring(0, ICON_SCAN_HEAD_LIMIT) : contents;
+        return head.contains(THUMB_UP_ICON) || head.contains(THUMB_DOWN_ICON);
     }
 }
