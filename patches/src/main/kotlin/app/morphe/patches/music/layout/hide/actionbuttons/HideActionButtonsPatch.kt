@@ -25,10 +25,10 @@ import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 
 private const val ACTION_BUTTONS_FILTER =
-    "Lapp/morphe/extension/music/patches/components/ActionButtonsFilter;"
+    "Lapp/morphe/extension/music/patches/components/MusicActionButtonsFilter;"
 
 private const val EXTENSION_BUTTON_PROTO_INTERFACE =
-    $$"Lapp/morphe/extension/music/patches/components/ActionButtonsFilter$ButtonProtoBufferInterface;"
+    $$"Lapp/morphe/extension/music/patches/components/MusicActionButtonsFilter$ButtonProtoBufferInterface;"
 
 @Suppress("unused")
 val hideActionButtonsPatch = bytecodePatch(
@@ -71,12 +71,12 @@ val hideActionButtonsPatch = bytecodePatch(
         // hard-code obfuscated field / method names.
         ButtonProtoBufferGetterFingerprint.let {
             val getterMethod = it.method
-            mutableClassDefBy(getterMethod.definingClass).apply {
+            it.classDef.apply {
                 interfaces.add(EXTENSION_BUTTON_PROTO_INTERFACE)
                 methods.add(
                     ImmutableMethod(
                         type,
-                        "patch_getButtonProto",
+                        "patch_getBuffer",
                         listOf(),
                         "[B",
                         AccessFlags.PUBLIC.value or AccessFlags.FINAL.value,

@@ -16,13 +16,14 @@ import java.util.IdentityHashMap;
 import java.util.List;
 
 import app.morphe.extension.music.settings.Settings;
+import app.morphe.extension.shared.Logger;
 import app.morphe.extension.shared.patches.components.BufferAsciiStrings;
 import app.morphe.extension.shared.patches.components.ContextInterface;
 import app.morphe.extension.shared.patches.components.Filter;
 import app.morphe.extension.shared.patches.components.StringFilterGroup;
 
 @SuppressWarnings("unused")
-public final class ActionButtonsFilter extends Filter {
+public final class MusicActionButtonsFilter extends Filter {
 
     /**
      * Injected by the patch onto the obfuscated litho message class that owns the button's
@@ -30,8 +31,8 @@ public final class ActionButtonsFilter extends Filter {
      * field / method names.
      */
     public interface ButtonProtoBufferInterface {
-        // Method body is added during patching.
-        byte[] patch_getButtonProto();
+        // Method is added during patching.
+        byte[] patch_getBuffer();
     }
 
     private static final String VIDEO_ACTION_BAR_PREFIX = "video_action_bar.e";
@@ -65,7 +66,7 @@ public final class ActionButtonsFilter extends Filter {
     private final StringFilterGroup actionBar;
     private final StringFilterGroup genericActionButton;
 
-    public ActionButtonsFilter() {
+    public MusicActionButtonsFilter() {
         actionBar = new StringFilterGroup(
                 Settings.HIDE_ACTION_BAR,
                 VIDEO_ACTION_BAR_PREFIX
@@ -157,19 +158,23 @@ public final class ActionButtonsFilter extends Filter {
      */
     public static void onLazilyConvertedElementLoaded(@NonNull String identifier,
                                                       @NonNull List<Object> treeNodeResultList) {
-        if (!identifier.startsWith(VIDEO_ACTION_BAR_PREFIX)) {
-            return;
-        }
-        if (Settings.HIDE_ACTION_BAR.get()) {
-            treeNodeResultList.clear();
-            return;
-        }
-        for (int i = treeNodeResultList.size() - 1; i >= 0; i--) {
-            byte[] buttonProto = extractButtonProto(treeNodeResultList.get(i));
-            if (buttonProto == null) continue;
-            if (shouldHideButton(buttonProto)) {
-                treeNodeResultList.remove(i);
+        try {
+            if (!identifier.startsWith(VIDEO_ACTION_BAR_PREFIX)) {
+                return;
             }
+            if (Settings.HIDE_ACTION_BAR.get()) {
+                treeNodeResultList.clear();
+                return;
+            }
+            for (int i = treeNodeResultList.size() - 1; i >= 0; i--) {
+                byte[] buttonProto = extractButtonProto(treeNodeResultList.get(i));
+                if (buttonProto == null) continue;
+                if (shouldHideButton(buttonProto)) {
+                    treeNodeResultList.remove(i);
+                }
+            }
+        } catch (Exception ex) {
+            Logger.printException(() -> "onLazilyConvertedElementLoaded failure", ex);
         }
     }
 
@@ -185,13 +190,9 @@ public final class ActionButtonsFilter extends Filter {
     @Nullable
     private static byte[] extractButtonProto(@Nullable Object item) {
         if (item == null) return null;
-        try {
-            ButtonProtoBufferInterface holder = findButtonProtoHolder(item, /* depth */ 0,
-                    /* maxDepth */ 6, new IdentityHashMap<>());
-            return holder == null ? null : holder.patch_getButtonProto();
-        } catch (Throwable ignored) {
-            return null;
-        }
+        ButtonProtoBufferInterface holder = findButtonProtoHolder(item, /* depth */ 0,
+                /* maxDepth */ 6, new IdentityHashMap<>());
+        return holder == null ? null : holder.patch_getBuffer();
     }
 
     @Nullable

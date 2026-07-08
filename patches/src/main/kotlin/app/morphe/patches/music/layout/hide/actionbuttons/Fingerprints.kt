@@ -24,8 +24,8 @@ internal object ButtonProtoBufferGetterFingerprint : Fingerprint(
     parameters = listOf(),
     filters = listOf(
         methodCall(
-            name = "jniEncode",
             opcode = Opcode.INVOKE_VIRTUAL,
+            smali = "Lcom/google/android/libraries/elements/adl/UpbMessage;->jniEncode(JJ)[B"
         )
     )
 )
