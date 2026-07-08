@@ -10,10 +10,12 @@ package app.morphe.patches.music.layout.hide.actionbuttons
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patches.music.misc.extension.sharedExtensionPatch
 import app.morphe.patches.music.misc.litho.filter.lithoFilterPatch
+import app.morphe.patches.music.misc.litho.node.treeNodeElementHookPatch
 import app.morphe.patches.music.misc.settings.PreferenceScreen
 import app.morphe.patches.music.misc.settings.settingsPatch
 import app.morphe.patches.music.shared.Constants.COMPATIBILITY_YOUTUBE_MUSIC
 import app.morphe.patches.shared.misc.litho.filter.addLithoFilter
+import app.morphe.patches.shared.misc.litho.node.hookTreeNodeResult
 import app.morphe.patches.shared.misc.settings.preference.PreferenceScreenPreference
 import app.morphe.patches.shared.misc.settings.preference.SwitchPreference
 
@@ -28,7 +30,8 @@ val hideActionButtonsPatch = bytecodePatch(
     dependsOn(
         sharedExtensionPatch,
         settingsPatch,
-        lithoFilterPatch
+        lithoFilterPatch,
+        treeNodeElementHookPatch
     )
 
     compatibleWith(COMPATIBILITY_YOUTUBE_MUSIC)
@@ -51,5 +54,6 @@ val hideActionButtonsPatch = bytecodePatch(
         )
 
         addLithoFilter(ACTION_BUTTONS_FILTER)
+        hookTreeNodeResult("$ACTION_BUTTONS_FILTER->onLazilyConvertedElementLoaded")
     }
 }

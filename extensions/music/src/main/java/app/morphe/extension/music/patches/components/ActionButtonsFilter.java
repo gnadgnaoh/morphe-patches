@@ -7,6 +7,10 @@
 
 package app.morphe.extension.music.patches.components;
 
+import androidx.annotation.NonNull;
+
+import java.util.List;
+
 import app.morphe.extension.music.settings.Settings;
 import app.morphe.extension.shared.patches.components.BufferAsciiStrings;
 import app.morphe.extension.shared.patches.components.ContextInterface;
@@ -19,6 +23,13 @@ public final class ActionButtonsFilter extends Filter {
     private static final String VIDEO_ACTION_BAR_PREFIX = "video_action_bar.e";
     private static final String VIDEO_ACTION_BUTTON_WRAPPER_PREFIX = "video_action_button_with_vm_input.e";
 
+    // Base names of the litho components / endpoint identifiers used to identify buttons.
+    // Path callbacks append `.e` to bound the match to the litho identifier suffix.
+    private static final String LIKE_BUTTON_MARKER = "like_button";
+    private static final String DISLIKE_BUTTON_MARKER = "dislike_button";
+    private static final String SEGMENTED_LIKE_DISLIKE_MARKER = "segmented_like_dislike_button";
+    private static final String DOWNLOAD_MARKER = "download_button";
+    private static final String MUSIC_DOWNLOAD_MARKER = "music_download_button";
     private static final String COMMENTS_MARKER = "music-comment-panel";
     private static final String LYRICS_MARKER = "music_watch_lyrics_panel";
     private static final String SHARE_MARKER = "timestamp_share_switch_button_entity_key";
@@ -37,14 +48,14 @@ public final class ActionButtonsFilter extends Filter {
         addPathCallbacks(
                 new StringFilterGroup(
                         Settings.HIDE_LIKE_DISLIKE_BUTTON,
-                        "like_button.e",
-                        "dislike_button.e",
-                        "segmented_like_dislike_button.e"
+                        LIKE_BUTTON_MARKER + ".e",
+                        DISLIKE_BUTTON_MARKER + ".e",
+                        SEGMENTED_LIKE_DISLIKE_MARKER + ".e"
                 ),
                 new StringFilterGroup(
                         Settings.HIDE_DOWNLOAD_BUTTON,
-                        "download_button.e",
-                        "music_download_button.e"
+                        DOWNLOAD_MARKER + ".e",
+                        MUSIC_DOWNLOAD_MARKER + ".e"
                 )
         );
 
@@ -104,5 +115,28 @@ public final class ActionButtonsFilter extends Filter {
             return Settings.HIDE_SAVE_BUTTON.get();
         }
         return path != null && path.contains(VIDEO_ACTION_BAR_PREFIX);
+    }
+
+    /**
+     * Injection point.
+     * Physically clears the action bar's child list so Litho never allocates the row -
+     * without this the identifier filter above only hides content and leaves an empty cell.
+     * <p>
+     * TODO: per-button removal (Comments/Lyrics/Share/Save/Radio/Like-Dislike/Download) still
+     * leaves an empty cell because we cannot yet map tree-node indexes to button identity
+     * without a Music-specific proto file. YouTube's counterpart pre-parses the watch
+     * response and builds a Map&lt;VideoId, List&lt;ActionButton&gt;&gt; ordered by proto
+     * position - porting that requires reverse-engineering the Music watch-response proto
+     * structure and is tracked separately.
+     */
+    public static void onLazilyConvertedElementLoaded(@NonNull String identifier,
+                                                      @NonNull List<Object> treeNodeResultList) {
+        if (!Settings.HIDE_ACTION_BAR.get()) {
+            return;
+        }
+        if (!identifier.startsWith(VIDEO_ACTION_BAR_PREFIX)) {
+            return;
+        }
+        treeNodeResultList.clear();
     }
 }
