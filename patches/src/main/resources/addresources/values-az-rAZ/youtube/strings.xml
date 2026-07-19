@@ -179,7 +179,7 @@ Dəyişikliklər ehtiva edir:
   <string name="morphe_hide_channel_tab_filter_strings_title">Kanal tabeli filtri</string>
   <string name="morphe_hide_channel_tab_filter_strings_summary">Yeni cərgələrlə ayrılan, çeşidləmək üçün kanal tabel adlarını qeyd et</string>
   <!-- 'Community' should be translated using the same localized wording YouTube displays for the button. -->
-  <string name="morphe_hide_community_button_title">İcma düyməsini gizlət</string>
+  <string name="morphe_hide_community_button_title">İctimai düyməsini gizlət</string>
   <!-- 'Join' should be translated using the same localized wording YouTube displays for the button. -->
   <string name="morphe_hide_join_button_title">Qoşulun düyməsin gizlət</string>
   <string name="morphe_hide_links_preview_title">Link önizləməsini gizlət</string>
