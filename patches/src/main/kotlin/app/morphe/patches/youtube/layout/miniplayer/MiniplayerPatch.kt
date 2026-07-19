@@ -337,7 +337,7 @@ val miniplayerPatch = bytecodePatch(
 
         // region fix minimal miniplayer using the wrong pause/play bold icons.
 
-        if (is_20_31_or_greater) {
+        if (is_20_31_or_greater && !is_21_29_or_greater) {
             if (is_21_17_or_greater) {
                 // 21.17+ removed the code to set the non-bold miniplayer pause/play icon,
                 // and removed the non bold yt_fill_pause_white_36 icons.
