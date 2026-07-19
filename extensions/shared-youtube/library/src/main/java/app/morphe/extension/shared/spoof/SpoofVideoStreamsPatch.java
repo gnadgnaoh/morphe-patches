@@ -67,6 +67,91 @@ public class SpoofVideoStreamsPatch {
 
     private static final boolean SPOOF_VIDEO_STREAMS = SharedYouTubeSettings.SPOOF_VIDEO_STREAMS.get();
 
+    /**
+     * If offline (download) requests should be excluded from spoofing interference.
+     * <p>
+     * YouTube 21.x fetches offline data using the dedicated
+     * 'offline/get_playback_data_entity' endpoint, which never passes through
+     * the '/player' hook used by this patch. As a result the downloader keeps
+     * the original (SABR restricted) streams, and stripping its POST body or
+     * redirecting its metadata requests leaves the transfer stuck at 0%.
+     */
+    private static final boolean FIX_OFFLINE_DOWNLOAD =
+            SharedYouTubeSettings.SPOOF_VIDEO_STREAMS_FIX_OFFLINE_DOWNLOAD.get();
+
+    /**
+     * Path fragments that belong to the offline download pipeline.
+     * Verified against YouTube 21.04.223 (class 'amdn').
+     */
+    private static final String[] OFFLINE_PATHS = {
+            "offline/get_playback_data_entity",
+            "offline/get_download_action",
+            "offline/offline_video_playback_position_sync",
+            "offline/playlist_sync_check",
+            "offline/stream_verification",
+            "offline/auto_offline",
+            "get_video_info",
+    };
+
+    /**
+     * Query parameters present only on offline transfer requests.
+     */
+    private static final String[] OFFLINE_QUERY_KEYS = {
+            "offlinePlayerToken",
+            "offline_mode_type",
+            "oad",
+    };
+
+    /**
+     * @return If the URI belongs to the offline download pipeline.
+     */
+    private static boolean isOfflineRequest(@Nullable Uri uri) {
+        if (uri == null) {
+            return false;
+        }
+
+        try {
+            String path = uri.getPath();
+            if (path != null) {
+                for (String offlinePath : OFFLINE_PATHS) {
+                    if (path.contains(offlinePath)) {
+                        return true;
+                    }
+                }
+            }
+
+            for (String key : OFFLINE_QUERY_KEYS) {
+                if (uri.getQueryParameter(key) != null) {
+                    return true;
+                }
+            }
+
+            // The download transfer service requests media using 'videoplayback'
+            // with a 'range' query parameter instead of a POST body.
+            // Regular playback uses SABR POST requests and has no 'range' parameter.
+            String path2 = uri.getPath();
+            if (path2 != null && path2.contains("videoplayback")
+                    && uri.getQueryParameter("range") != null) {
+                return true;
+            }
+        } catch (Exception ex) {
+            Logger.printException(() -> "isOfflineRequest failure", ex);
+        }
+
+        return false;
+    }
+
+    private static boolean isOfflineRequest(@Nullable String urlString) {
+        if (urlString == null) {
+            return false;
+        }
+        try {
+            return isOfflineRequest(Uri.parse(urlString));
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
     private static volatile Map<String, String> currentVideoRequestHeader;
 
     private static boolean overrideSpoofStreamFlagsForHeaders = SPOOF_VIDEO_STREAMS;
@@ -144,6 +229,11 @@ public class SpoofVideoStreamsPatch {
     public static Uri blockGetWatchRequest(Uri playerRequestUri) {
         if (SPOOF_VIDEO_STREAMS) {
             try {
+                if (FIX_OFFLINE_DOWNLOAD && isOfflineRequest(playerRequestUri)) {
+                    Logger.printDebug(() -> "Allowing offline 'get_watch' request");
+                    return playerRequestUri;
+                }
+
                 String path = playerRequestUri.getPath();
 
                 if (path != null && path.contains("get_watch")) {
@@ -162,7 +252,14 @@ public class SpoofVideoStreamsPatch {
     public static Uri.Builder blockGetWatchRequest(Uri.Builder playerRequestBuilder) {
         if (SPOOF_VIDEO_STREAMS) {
             try {
-                String path = playerRequestBuilder.build().getPath();
+                Uri built = playerRequestBuilder.build();
+
+                if (FIX_OFFLINE_DOWNLOAD && isOfflineRequest(built)) {
+                    Logger.printDebug(() -> "Allowing offline 'get_watch' request");
+                    return playerRequestBuilder;
+                }
+
+                String path = built.getPath();
 
                 if (path != null && path.contains("get_watch")) {
                     Logger.printDebug(() -> "Blocking 'get_watch' by returning internet connection check URI");
@@ -191,6 +288,12 @@ public class SpoofVideoStreamsPatch {
         if (SPOOF_VIDEO_STREAMS) {
             try {
                 var originalUri = Uri.parse(originalUrlString);
+
+                if (FIX_OFFLINE_DOWNLOAD && isOfflineRequest(originalUri)) {
+                    Logger.printDebug(() -> "Allowing offline 'att/get' request");
+                    return originalUrlString;
+                }
+
                 String path = originalUri.getPath();
 
                 if (path != null && path.contains("att/get")) {
@@ -215,6 +318,12 @@ public class SpoofVideoStreamsPatch {
         if (SPOOF_VIDEO_STREAMS) {
             try {
                 var originalUri = Uri.parse(originalUrlString);
+
+                if (FIX_OFFLINE_DOWNLOAD && isOfflineRequest(originalUri)) {
+                    Logger.printDebug(() -> "Allowing offline 'initplayback' request");
+                    return originalUrlString;
+                }
+
                 String path = originalUri.getPath();
 
                 if (path != null && path.contains("initplayback")) {
@@ -323,6 +432,12 @@ public class SpoofVideoStreamsPatch {
         if (SPOOF_VIDEO_STREAMS) {
             try {
                 Uri uri = Uri.parse(url);
+
+                if (FIX_OFFLINE_DOWNLOAD && isOfflineRequest(uri)) {
+                    Logger.printDebug(() -> "Not spoofing offline download request");
+                    return;
+                }
+
                 String path = uri.getPath();
                 if (path == null || !path.contains("player")) {
                     return;
@@ -394,6 +509,15 @@ public class SpoofVideoStreamsPatch {
                 if (method == methodPost) {
                     String path = uri.getPath();
                     if (path != null && path.contains("videoplayback")) {
+                        // Do not strip the body of offline transfer requests.
+                        // The download service reuses the same DataSpec class as
+                        // regular playback, and removing its body causes the
+                        // transfer to stall at 0%.
+                        if (FIX_OFFLINE_DOWNLOAD && isOfflineRequest(uri)) {
+                            Logger.printDebug(() -> "Keeping post body for offline download request");
+                            return postData;
+                        }
+
                         return null;
                     }
                 }
